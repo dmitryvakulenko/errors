@@ -23,22 +23,57 @@ func As(err error, target any) bool {
 	return stdErr.As(err, target)
 }
 
+func WrapWithStack(err error, kind, code int, message string, fields ...any) *Error {
+	res := &Error{
+		Kind:     kind,
+		Code:     code,
+		Message:  message,
+		Stack:    buildStack(),
+		Metadata: buildFields(fields),
+		Previous: err,
+	}
+
+	return res
+}
+
+func Wrap(err error, kind, code int, message string, fields ...any) *Error {
+	res := &Error{
+		Kind:     kind,
+		Code:     code,
+		Message:  message,
+		Metadata: buildFields(fields),
+		Previous: err,
+	}
+
+	return res
+}
+
 func New(kind, code int, message string, fields ...any) *Error {
 	res := &Error{
 		Kind:     kind,
 		Code:     code,
 		Message:  message,
 		Stack:    buildStack(),
-		Metadata: make(map[string]any, len(fields)/2),
+		Metadata: buildFields(fields),
 	}
 
-	for i := 0; i < len(fields); i += 2 {
+	return res
+}
+
+func buildFields(fields []any) map[string]any {
+	var maxIdx = len(fields)
+	if maxIdx%2 == 1 {
+		maxIdx -= 1
+	}
+
+	res := make(map[string]any, len(fields)/2)
+	for i := 0; i < maxIdx; i += 2 {
 		key, ok := fields[i].(string)
 		if !ok {
 			continue
 		}
 
-		res.Metadata[key] = fields[i+1]
+		res[key] = fields[i+1]
 	}
 
 	return res

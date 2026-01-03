@@ -1,9 +1,19 @@
 package errors
 
 import (
+	"errors"
+	"fmt"
 	"runtime"
 	"testing"
 )
+
+type simpleErr struct {
+	Code int
+}
+
+func (s *simpleErr) Error() string {
+	return fmt.Sprintf("%d", s.Code)
+}
 
 func TestNewError(t *testing.T) {
 	e := New(1, 2, "test error", "key", "value")
@@ -40,5 +50,31 @@ func TestNewError(t *testing.T) {
 
 	if frame.Function != "dmitryvakulenko/errors.TestNewError" {
 		t.Errorf("Wrong stack - unknown function '%s'", frame.Function)
+	}
+}
+
+func TestOddFields(t *testing.T) {
+	e := New(1, 2, "test error", "key", "value", "key2")
+	if len(e.Metadata) != 1 {
+		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Metadata))
+	}
+}
+
+func TestIs(t *testing.T) {
+	err := errors.New("example error")
+	e := Wrap(err, 1, 2, "wrapping")
+
+	if Is(e, err) != true {
+		t.Errorf("Error should be same")
+	}
+}
+
+func TestAs(t *testing.T) {
+	err := &simpleErr{Code: 255}
+	e := Wrap(err, 1, 2, "wrapping")
+
+	var tstErr *simpleErr
+	if !As(e, &tstErr) {
+		t.Errorf("Error should has same type")
 	}
 }
