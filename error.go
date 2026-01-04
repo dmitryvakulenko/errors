@@ -8,12 +8,12 @@ import (
 )
 
 type Error struct {
-	Kind     int
-	Code     int
-	Message  string
-	LogAttrs []slog.Attr
-	Stack    []uintptr
-	Previous error
+	Kind          int
+	Code          int
+	Message       string
+	LogAttributes []slog.Attr
+	Stacktrace    []uintptr
+	Previous      error
 }
 
 func Is(err, target error) bool {
@@ -26,12 +26,12 @@ func As(err error, target any) bool {
 
 func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:     kind,
-		Code:     code,
-		Message:  message,
-		Stack:    buildStack(),
-		LogAttrs: attrs,
-		Previous: err,
+		Kind:          kind,
+		Code:          code,
+		Message:       message,
+		Stacktrace:    buildStack(),
+		LogAttributes: attrs,
+		Previous:      err,
 	}
 
 	return res
@@ -39,11 +39,11 @@ func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr
 
 func Wrap(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:     kind,
-		Code:     code,
-		Message:  message,
-		LogAttrs: attrs,
-		Previous: err,
+		Kind:          kind,
+		Code:          code,
+		Message:       message,
+		LogAttributes: attrs,
+		Previous:      err,
 	}
 
 	return res
@@ -51,11 +51,11 @@ func Wrap(err error, kind, code int, message string, attrs ...slog.Attr) *Error 
 
 func New(kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:     kind,
-		Code:     code,
-		Message:  message,
-		Stack:    buildStack(),
-		LogAttrs: attrs,
+		Kind:          kind,
+		Code:          code,
+		Message:       message,
+		Stacktrace:    buildStack(),
+		LogAttributes: attrs,
 	}
 
 	return res
@@ -73,4 +73,12 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error {
 	return e.Previous
+}
+
+func (e *Error) LogAttrs() []slog.Attr {
+	return e.LogAttributes
+}
+
+func (e *Error) Stack() []uintptr {
+	return e.Stacktrace
 }

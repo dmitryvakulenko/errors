@@ -34,19 +34,19 @@ func TestNewError(t *testing.T) {
 		t.Errorf("Expected full error message to be 'test error [1:2]', got '%s'", e.Error())
 	}
 
-	if len(e.LogAttrs) != 1 {
-		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.LogAttrs))
+	if len(e.LogAttributes) != 1 {
+		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.LogAttributes))
 	}
 
-	if e.LogAttrs[0].String() != "key=value" {
-		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.LogAttrs[0].String())
+	if e.LogAttributes[0].String() != "key=value" {
+		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.LogAttributes[0].String())
 	}
 
-	if len(e.Stack) != 3 {
-		t.Errorf("Expected Stack should have exactly 3 entries (including testing runtime), got %d", len(e.Stack))
+	if len(e.Stacktrace) != 3 {
+		t.Errorf("Expected Stack should have exactly 3 entries (including testing runtime), got %d", len(e.Stacktrace))
 	}
 
-	frames := runtime.CallersFrames(e.Stack)
+	frames := runtime.CallersFrames(e.Stacktrace)
 	frame, _ := frames.Next()
 
 	if frame.Function != "dmitryvakulenko/errors.TestNewError" {
