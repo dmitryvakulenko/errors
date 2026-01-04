@@ -3,6 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"testing"
 )
@@ -16,7 +17,7 @@ func (s *simpleErr) Error() string {
 }
 
 func TestNewError(t *testing.T) {
-	e := New(1, 2, "test error", "key", "value")
+	e := New(1, 2, "test error", slog.String("key", "value"))
 	if e.Kind != 1 {
 		t.Errorf("Expected Kind to be 1, got %d", e.Kind)
 	}
@@ -33,12 +34,12 @@ func TestNewError(t *testing.T) {
 		t.Errorf("Expected full error message to be 'test error [1:2]', got '%s'", e.Error())
 	}
 
-	if len(e.Metadata) != 1 {
-		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Metadata))
+	if len(e.LogAttrs) != 1 {
+		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.LogAttrs))
 	}
 
-	if e.Metadata["key"] != "value" {
-		t.Errorf("Expected Metadata['key'] to be 'value', got '%v'", e.Metadata["key"])
+	if e.LogAttrs[0].String() != "key=value" {
+		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.LogAttrs[0].String())
 	}
 
 	if len(e.Stack) != 3 {
@@ -50,13 +51,6 @@ func TestNewError(t *testing.T) {
 
 	if frame.Function != "dmitryvakulenko/errors.TestNewError" {
 		t.Errorf("Wrong stack - unknown function '%s'", frame.Function)
-	}
-}
-
-func TestOddFields(t *testing.T) {
-	e := New(1, 2, "test error", "key", "value", "key2")
-	if len(e.Metadata) != 1 {
-		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Metadata))
 	}
 }
 
