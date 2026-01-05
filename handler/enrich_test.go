@@ -141,7 +141,7 @@ func TestAll(t *testing.T) {
 	for _, d := range testData {
 		t.Run(d.Name, func(t *testing.T) {
 			stub := &testHandler{}
-			h := NewEnrichHandler(stub)
+			h := NewEnrich(stub)
 			logger := slog.New(h)
 			logger.Info("test", "error", d.Err)
 
