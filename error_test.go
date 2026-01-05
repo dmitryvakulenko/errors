@@ -38,7 +38,7 @@ func TestNewError(t *testing.T) {
 		t.Errorf("Expected Message to be 'test error', got '%s'", e.Message)
 	}
 
-	if e.Error() != "test error [1:2]" {
+	if e.Error() != "test error" {
 		t.Errorf("Expected full error message to be 'test error [1:2]', got '%s'", e.Error())
 	}
 

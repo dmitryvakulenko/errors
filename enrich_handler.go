@@ -18,7 +18,7 @@ const (
 
 type (
 	EnrichHandler struct {
-		next     slog.Handler
+		handlers []slog.Handler
 		minLevel slog.Level
 	}
 
@@ -29,31 +29,30 @@ func (s stackTrace) LogValue() slog.Value {
 	return slog.GroupValue()
 }
 
-type Option func(*EnrichHandler)
-
-func WithMinLevel(lvl slog.Level) Option {
-	return func(h *EnrichHandler) { h.minLevel = lvl }
-}
-
-func WrapWithEnrichHandler(next slog.Handler, opts ...Option) EnrichHandler {
-	h := &EnrichHandler{
-		next: next,
+func NewWithEnrichHandler(handlers []slog.Handler) *EnrichHandler {
+	hs := make([]slog.Handler, 0, len(handlers))
+	for _, h := range handlers {
+		if h != nil {
+			hs = append(hs, h)
+		}
 	}
 
-	for _, opt := range opts {
-		opt(h)
-	}
-	return *h
+	return &EnrichHandler{handlers: hs}
 }
 
 func (h *EnrichHandler) Enabled(ctx context.Context, lvl slog.Level) bool {
-	return h.next.Enabled(ctx, lvl)
+	for _, dst := range h.handlers {
+		if dst.Enabled(ctx, lvl) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 	firstErr := h.findFirstError(&r)
 	if firstErr == nil {
-		return h.next.Handle(ctx, r)
+		return h.callNext(ctx, r)
 	}
 
 	r2 := r.Clone()
@@ -87,7 +86,22 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 		)
 	}
 
-	return h.next.Handle(ctx, r2)
+	return h.callNext(ctx, r2)
+}
+
+func (h *EnrichHandler) callNext(ctx context.Context, r slog.Record) error {
+	var handlerErr error
+	for _, dst := range h.handlers {
+		if !dst.Enabled(ctx, r.Level) {
+			continue
+		}
+
+		if err := dst.Handle(ctx, r); err != nil && handlerErr == nil {
+			handlerErr = err
+		}
+	}
+
+	return handlerErr
 }
 
 func (h *EnrichHandler) generateErrorId() string {
@@ -112,16 +126,28 @@ func (h *EnrichHandler) findFirstError(r *slog.Record) error {
 	return res
 }
 
-func (h *EnrichHandler) WithAttrs(as []slog.Attr) slog.Handler {
-	cp := *h
-	cp.next = h.next.WithAttrs(as)
-	return &cp
+func (h *EnrichHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	if len(h.handlers) == 0 {
+		return h
+	}
+	hs := make([]slog.Handler, 0, len(h.handlers))
+	for _, dst := range h.handlers {
+		hs = append(hs, dst.WithAttrs(attrs))
+	}
+
+	return &EnrichHandler{handlers: hs}
 }
 
 func (h *EnrichHandler) WithGroup(name string) slog.Handler {
-	cp := *h
-	cp.next = h.next.WithGroup(name)
-	return &cp
+	if len(h.handlers) == 0 {
+		return h
+	}
+	hs := make([]slog.Handler, 0, len(h.handlers))
+	for _, dst := range h.handlers {
+		hs = append(hs, dst.WithGroup(name))
+	}
+
+	return &EnrichHandler{handlers: hs}
 }
 
 //func collectMetaErrors(err error) []MetaError {
