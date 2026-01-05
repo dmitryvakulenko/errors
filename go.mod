@@ -1,4 +1,4 @@
-module dmitryvakulenko/errors
+module github.com/dmitryvakulenko/errors
 
 go 1.25.1
 

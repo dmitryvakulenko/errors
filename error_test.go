@@ -57,7 +57,7 @@ func TestNewError(t *testing.T) {
 	frames := runtime.CallersFrames(e.Stacktrace)
 	frame, _ := frames.Next()
 
-	if frame.Function != "dmitryvakulenko/errors.TestNewError" {
+	if frame.Function != "github.com/dmitryvakulenko/errors.TestNewError" {
 		t.Errorf("Wrong stack - unknown function '%s'", frame.Function)
 	}
 }

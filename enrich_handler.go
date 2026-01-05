@@ -29,7 +29,7 @@ func (s stackTrace) LogValue() slog.Value {
 	return slog.GroupValue()
 }
 
-func NewWithEnrichHandler(handlers []slog.Handler) *EnrichHandler {
+func NewEnrichHandler(handlers ...slog.Handler) *EnrichHandler {
 	hs := make([]slog.Handler, 0, len(handlers))
 	for _, h := range handlers {
 		if h != nil {
@@ -50,12 +50,25 @@ func (h *EnrichHandler) Enabled(ctx context.Context, lvl slog.Level) bool {
 }
 
 func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
-	firstErr := h.findFirstError(&r)
+	r2 := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
+
+	var firstErr error
+	r.Attrs(func(a slog.Attr) bool {
+		v := a.Value.Any()
+		err, ok := v.(error)
+		if !ok || err == nil {
+			r2.AddAttrs(a)
+		}
+
+		firstErr = err
+
+		return false
+	})
+
 	if firstErr == nil {
 		return h.callNext(ctx, r)
 	}
 
-	r2 := r.Clone()
 	r2.AddAttrs(slog.String(errorIdKey, h.generateErrorId()))
 
 	var lastMeta *Error
@@ -66,7 +79,7 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 			break
 		}
 
-		if resultMsg != "" {
+		if resultMsg == "" {
 			resultMsg = tmp.Error()
 		}
 		r2.AddAttrs(lastMeta.LogAttrs()...)
@@ -77,7 +90,7 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 		}
 	}
 
-	slog.String(errorMessageKey, resultMsg)
+	r2.AddAttrs(slog.String(errorMessageKey, resultMsg))
 
 	if lastMeta != nil {
 		r2.AddAttrs(
@@ -107,23 +120,6 @@ func (h *EnrichHandler) callNext(ctx context.Context, r slog.Record) error {
 func (h *EnrichHandler) generateErrorId() string {
 	id := uuid.New()
 	return hex.EncodeToString(id[:])
-}
-
-func (h *EnrichHandler) findFirstError(r *slog.Record) error {
-	var res error
-	r.Attrs(func(a slog.Attr) bool {
-		v := a.Value.Any()
-		err, ok := v.(error)
-		if !ok || err == nil {
-			return true
-		}
-
-		res = err
-
-		return false
-	})
-
-	return res
 }
 
 func (h *EnrichHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

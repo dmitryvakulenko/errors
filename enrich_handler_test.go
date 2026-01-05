@@ -139,15 +139,12 @@ func TestAll(t *testing.T) {
 	for _, d := range testData {
 		t.Run(d.Name, func(t *testing.T) {
 			stub := &testHandler{}
-			h := NewWithEnrichHandler([]slog.Handler{stub})
+			h := NewEnrichHandler(stub)
 			logger := slog.New(h)
 			logger.Info("test", "error", d.Err)
 
 			hasId := false
-			attrsAmount := 0
 			stub.Rec.Attrs(func(a slog.Attr) bool {
-				attrsAmount += 1
-
 				switch a.Key {
 				case errorIdKey:
 					val := a.Value.String()
@@ -192,8 +189,8 @@ func TestAll(t *testing.T) {
 				t.Errorf("Error has no id")
 			}
 
-			if d.ExpectedError.TotalAttrs != attrsAmount {
-				t.Errorf("Wrong attributes amount. Expected %d, got %d", d.ExpectedError.TotalAttrs, attrsAmount)
+			if d.ExpectedError.TotalAttrs != stub.Rec.NumAttrs() {
+				t.Errorf("Wrong attributes amount. Expected %d, got %d", d.ExpectedError.TotalAttrs, stub.Rec.NumAttrs())
 			}
 		})
 	}
