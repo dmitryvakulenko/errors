@@ -2,13 +2,14 @@ package errors
 
 import (
 	stdErr "errors"
+	"fmt"
 	"log/slog"
 	"runtime"
 )
 
 type Error struct {
-	Kind       int
-	Code       int
+	Kind       fmt.Stringer
+	Code       fmt.Stringer
 	Message    string
 	Meta       []slog.Attr
 	Stacktrace []uintptr
@@ -23,7 +24,7 @@ func As(err error, target any) bool {
 	return stdErr.As(err, target)
 }
 
-func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
+func WrapWithStack(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Kind:       kind,
 		Code:       code,
@@ -36,7 +37,7 @@ func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr
 	return res
 }
 
-func Wrap(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
+func Wrap(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Kind:     kind,
 		Code:     code,
@@ -67,7 +68,7 @@ func WrapMetaWithStack(err error, attrs ...slog.Attr) *Error {
 	return res
 }
 
-func New(kind, code int, message string, attrs ...slog.Attr) *Error {
+func New(kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Kind:       kind,
 		Code:       code,

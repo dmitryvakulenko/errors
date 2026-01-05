@@ -8,8 +8,16 @@ import (
 	"testing"
 )
 
-type simpleErr struct {
-	Code int
+type (
+	simpleErr struct {
+		Code int
+	}
+
+	errKindCode int
+)
+
+func (e errKindCode) String() string {
+	return fmt.Sprintf("%d", int(e))
 }
 
 func (s *simpleErr) Error() string {
@@ -17,12 +25,12 @@ func (s *simpleErr) Error() string {
 }
 
 func TestNewError(t *testing.T) {
-	e := New(1, 2, "test error", slog.String("key", "value"))
-	if e.Kind != 1 {
+	e := New(errKindCode(1), errKindCode(2), "test error", slog.String("key", "value"))
+	if e.Kind != errKindCode(1) {
 		t.Errorf("Expected Kind to be 1, got %d", e.Kind)
 	}
 
-	if e.Code != 2 {
+	if e.Code != errKindCode(2) {
 		t.Errorf("Expected Code to be 2, got %d", e.Code)
 	}
 
@@ -56,7 +64,7 @@ func TestNewError(t *testing.T) {
 
 func TestIs(t *testing.T) {
 	err := errors.New("example error")
-	e := Wrap(err, 1, 2, "wrapping")
+	e := Wrap(err, errKindCode(1), errKindCode(2), "wrapping")
 
 	if Is(e, err) != true {
 		t.Errorf("Error should be same")
@@ -65,7 +73,7 @@ func TestIs(t *testing.T) {
 
 func TestAs(t *testing.T) {
 	err := &simpleErr{Code: 255}
-	e := Wrap(err, 1, 2, "wrapping")
+	e := Wrap(err, errKindCode(1), errKindCode(2), "wrapping")
 
 	var tstErr *simpleErr
 	if !As(e, &tstErr) {

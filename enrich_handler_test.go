@@ -8,8 +8,53 @@ import (
 	"testing"
 )
 
-type testHandler struct {
-	Rec slog.Record
+type (
+	testHandler struct {
+		Rec slog.Record
+	}
+
+	expectedErrorData struct {
+		Type       string
+		Message    string
+		Meta       []slog.Attr
+		StackPCs   []uintptr
+		TotalAttrs int
+	}
+
+	testKind int
+	testCode int
+)
+
+const (
+	kind1 testKind = iota + 1
+	kind2
+)
+
+const (
+	code1 testCode = iota + 1
+	code2
+)
+
+func (t testKind) String() string {
+	switch t {
+	case kind1:
+		return "kind1"
+	case kind2:
+		return "kind2"
+	default:
+		return "unknown"
+	}
+}
+
+func (t testCode) String() string {
+	switch t {
+	case code1:
+		return "code1"
+	case code2:
+		return "code2"
+	default:
+		return "unknown"
+	}
 }
 
 func (t *testHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -33,33 +78,34 @@ func TestAll(t *testing.T) {
 	testData := []struct {
 		Name          string
 		Err           error
-		ExpectedError *errorSummary
+		ExpectedError *expectedErrorData
 	}{
 		{
 			Name: "Standard error",
 			Err:  errors.New("standard error"),
-			ExpectedError: &errorSummary{
-				Message: "standard error",
+			ExpectedError: &expectedErrorData{
+				Message:    "standard error",
+				TotalAttrs: 2,
 			},
 		},
 		{
 			Name: "Only custom error no attributes",
-			Err:  New(1, 2, "hello"),
-			ExpectedError: &errorSummary{
-				Kind:     1,
-				Code:     2,
-				Message:  "hello",
-				StackPCs: make([]uintptr, 3),
+			Err:  New(kind1, code1, "hello"),
+			ExpectedError: &expectedErrorData{
+				Type:       "kind1:code1",
+				Message:    "hello",
+				StackPCs:   make([]uintptr, 3),
+				TotalAttrs: 4,
 			},
 		},
 		{
 			Name: "Wrapped custom error by one layer",
-			Err:  fmt.Errorf("got error: %w", New(1, 2, "hello")),
-			ExpectedError: &errorSummary{
-				Kind:     1,
-				Code:     2,
-				Message:  "got error: hello",
-				StackPCs: make([]uintptr, 3),
+			Err:  fmt.Errorf("got error: %w", New(kind1, code1, "hello")),
+			ExpectedError: &expectedErrorData{
+				Type:       "kind1:code1",
+				Message:    "got error: hello",
+				StackPCs:   make([]uintptr, 3),
+				TotalAttrs: 4,
 			},
 		},
 		{
@@ -68,17 +114,16 @@ func TestAll(t *testing.T) {
 				Wrap(
 					fmt.Errorf(
 						"got error: %w",
-						New(1, 2, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
+						New(kind1, code1, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
 					),
-					3,
-					4,
+					kind2,
+					code2,
 					"aaa",
 					slog.Int("request_id", 2),
 				),
 			),
-			ExpectedError: &errorSummary{
-				Kind:     1,
-				Code:     2,
+			ExpectedError: &expectedErrorData{
+				Type:     "kind1:code1",
 				Message:  "full error: aaa",
 				StackPCs: make([]uintptr, 3),
 				Meta: []slog.Attr{
@@ -86,6 +131,7 @@ func TestAll(t *testing.T) {
 					slog.Int("code", 1),
 					slog.Int("code2", 2),
 				},
+				TotalAttrs: 7,
 			},
 		},
 	}
@@ -97,55 +143,57 @@ func TestAll(t *testing.T) {
 			logger := slog.New(&h)
 			logger.Info("test", "error", d.Err)
 
-			var ok bool
-			var summary *errorSummary
+			hasId := false
+			attrsAmount := 0
 			stub.Rec.Attrs(func(a slog.Attr) bool {
-				if a.Key == errorSummaryKey {
-					tmp := a.Value.Any()
+				attrsAmount += 1
 
-					summary, ok = tmp.(*errorSummary)
-					if !ok {
-						return true
+				switch a.Key {
+				case errorIdKey:
+					val := a.Value.String()
+					if len(val) != 0 {
+						hasId = true
 					}
-
-					return false
+				case errorMessageKey:
+					val := a.Value.String()
+					if d.ExpectedError.Message != val {
+						t.Errorf("Message mismatch. Expected '%s', real '%s'", d.ExpectedError.Message, val)
+					}
+				case errorTypeKey:
+					val := a.Value.String()
+					if d.ExpectedError.Type != val {
+						t.Errorf("Error type mismatch. Expected '%s', real '%s'", d.ExpectedError.Type, val)
+					}
+				case errorStackTraceKey:
+					stack, ok := a.Value.Any().(stackTrace)
+					if !ok {
+						t.Errorf("Wrong stack type")
+					}
+					if len(d.ExpectedError.StackPCs) != len(stack) {
+						t.Errorf("Stack length mismatch. Expected %d, got %d", len(d.ExpectedError.StackPCs), len(stack))
+					}
+				default:
+					for _, m := range d.ExpectedError.Meta {
+						if m.Key == a.Key && !m.Equal(a) {
+							t.Errorf(
+								"Attribute %s mismatch. %v != %v",
+								m.Key,
+								m.Value,
+								a.Value,
+							)
+						}
+					}
 				}
+
 				return true
 			})
 
-			if summary == nil {
-				t.Errorf("No summary error")
+			if !hasId {
+				t.Errorf("Error has no id")
 			}
 
-			if d.ExpectedError.Kind != summary.Kind {
-				t.Errorf("Kind mismatch. Expected %d, real %d", d.ExpectedError.Kind, summary.Kind)
-			}
-
-			if d.ExpectedError.Code != summary.Code {
-				t.Errorf("Code mismatch. Expected %d, real %d", d.ExpectedError.Code, summary.Code)
-			}
-
-			if d.ExpectedError.Message != summary.Message {
-				t.Errorf("Message mismatch. Expected '%s', real '%s'", d.ExpectedError.Message, summary.Message)
-			}
-
-			if len(d.ExpectedError.StackPCs) != len(summary.StackPCs) {
-				t.Errorf("Stack length mismatch. Expected %d, got %d", len(d.ExpectedError.StackPCs), len(summary.StackPCs))
-			}
-
-			if len(d.ExpectedError.Meta) != len(summary.Meta) {
-				t.Errorf("Metadata length mismatch. Expected %d, got %d", len(d.ExpectedError.Meta), len(summary.Meta))
-			}
-
-			for idx := range d.ExpectedError.Meta {
-				if !d.ExpectedError.Meta[idx].Equal(summary.Meta[idx]) {
-					t.Errorf(
-						"Attribute %s mismatch. %v != %v",
-						d.ExpectedError.Meta[idx].Key,
-						d.ExpectedError.Meta[idx].Value.Any(),
-						summary.Meta[idx].Value.Any(),
-					)
-				}
+			if d.ExpectedError.TotalAttrs != attrsAmount {
+				t.Errorf("Wrong attributes amount. Expected %d, got %d", d.ExpectedError.TotalAttrs, attrsAmount)
 			}
 		})
 	}

@@ -2,10 +2,19 @@ package errors
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"log/slog"
+
+	"github.com/google/uuid"
 )
 
-const errorSummaryKey = "summaryError"
+const (
+	errorIdKey         = "errorId"
+	errorMessageKey    = "errorMessage"
+	errorTypeKey       = "errorType"
+	errorStackTraceKey = "errorStackTrace"
+)
 
 type (
 	EnrichHandler struct {
@@ -13,14 +22,12 @@ type (
 		minLevel slog.Level
 	}
 
-	errorSummary struct {
-		Kind     int
-		Code     int
-		Message  string
-		Meta     []slog.Attr
-		StackPCs []uintptr
-	}
+	stackTrace []uintptr
 )
+
+func (s stackTrace) LogValue() slog.Value {
+	return slog.GroupValue()
+}
 
 type Option func(*EnrichHandler)
 
@@ -49,7 +56,9 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 		return h.next.Handle(ctx, r)
 	}
 
-	attrs := make([]slog.Attr, 0, 10)
+	r2 := r.Clone()
+	r2.AddAttrs(slog.String(errorIdKey, h.generateErrorId()))
+
 	var lastMeta *Error
 	tmp := firstErr
 	var resultMsg = firstErr.Error()
@@ -61,7 +70,7 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 		if resultMsg != "" {
 			resultMsg = tmp.Error()
 		}
-		attrs = append(attrs, lastMeta.LogAttrs()...)
+		r2.AddAttrs(lastMeta.LogAttrs()...)
 
 		tmp = lastMeta.Unwrap()
 		if tmp == nil {
@@ -69,24 +78,21 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 		}
 	}
 
-	r2 := r.Clone()
+	slog.String(errorMessageKey, resultMsg)
 
-	var summary *errorSummary
-	if lastMeta == nil {
-		summary = &errorSummary{Message: firstErr.Error()}
-	} else {
-		summary = &errorSummary{
-			Kind:     lastMeta.Kind,
-			Code:     lastMeta.Code,
-			Message:  firstErr.Error(),
-			Meta:     attrs,
-			StackPCs: lastMeta.Stacktrace,
-		}
+	if lastMeta != nil {
+		r2.AddAttrs(
+			slog.String(errorTypeKey, fmt.Sprintf("%s:%s", lastMeta.Kind.String(), lastMeta.Code.String())),
+			slog.Any(errorStackTraceKey, stackTrace(lastMeta.Stacktrace)),
+		)
 	}
 
-	r2.AddAttrs(slog.Any(errorSummaryKey, summary))
-
 	return h.next.Handle(ctx, r2)
+}
+
+func (h *EnrichHandler) generateErrorId() string {
+	id := uuid.New()
+	return hex.EncodeToString(id[:])
 }
 
 func (h *EnrichHandler) findFirstError(r *slog.Record) error {
