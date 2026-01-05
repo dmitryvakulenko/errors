@@ -1,4 +1,4 @@
-package errors
+package handler
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/dmitryvakulenko/errors"
 	"github.com/google/uuid"
 )
 
@@ -71,11 +72,11 @@ func (h *EnrichHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	r2.AddAttrs(slog.String(errorIdKey, h.generateErrorId()))
 
-	var lastMeta *Error
+	var lastMeta *errors.Error
 	tmp := firstErr
 	var resultMsg = firstErr.Error()
 	for {
-		if !As(tmp, &lastMeta) {
+		if !errors.As(tmp, &lastMeta) {
 			break
 		}
 

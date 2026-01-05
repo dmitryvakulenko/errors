@@ -1,4 +1,4 @@
-package errors
+package handler
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
+
+	errors2 "github.com/dmitryvakulenko/errors"
 )
 
 type (
@@ -90,7 +92,7 @@ func TestAll(t *testing.T) {
 		},
 		{
 			Name: "Only custom error no attributes",
-			Err:  New(kind1, code1, "hello"),
+			Err:  errors2.New(kind1, code1, "hello"),
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "hello",
@@ -100,7 +102,7 @@ func TestAll(t *testing.T) {
 		},
 		{
 			Name: "Wrapped custom error by one layer",
-			Err:  fmt.Errorf("got error: %w", New(kind1, code1, "hello")),
+			Err:  fmt.Errorf("got error: %w", errors2.New(kind1, code1, "hello")),
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "got error: hello",
@@ -111,10 +113,10 @@ func TestAll(t *testing.T) {
 		{
 			Name: "Multiple wrapped custom error with metadata",
 			Err: fmt.Errorf("full error: %w",
-				Wrap(
+				errors2.Wrap(
 					fmt.Errorf(
 						"got error: %w",
-						New(kind1, code1, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
+						errors2.New(kind1, code1, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
 					),
 					kind2,
 					code2,
