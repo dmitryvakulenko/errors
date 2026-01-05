@@ -34,12 +34,12 @@ func TestNewError(t *testing.T) {
 		t.Errorf("Expected full error message to be 'test error [1:2]', got '%s'", e.Error())
 	}
 
-	if len(e.LogAttributes) != 1 {
-		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.LogAttributes))
+	if len(e.Meta) != 1 {
+		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Meta))
 	}
 
-	if e.LogAttributes[0].String() != "key=value" {
-		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.LogAttributes[0].String())
+	if e.Meta[0].String() != "key=value" {
+		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.Meta[0].String())
 	}
 
 	if len(e.Stacktrace) != 3 {

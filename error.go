@@ -2,18 +2,17 @@ package errors
 
 import (
 	stdErr "errors"
-	"fmt"
 	"log/slog"
 	"runtime"
 )
 
 type Error struct {
-	Kind          int
-	Code          int
-	Message       string
-	LogAttributes []slog.Attr
-	Stacktrace    []uintptr
-	Previous      error
+	Kind       int
+	Code       int
+	Message    string
+	Meta       []slog.Attr
+	Stacktrace []uintptr
+	Previous   error
 }
 
 func Is(err, target error) bool {
@@ -26,12 +25,12 @@ func As(err error, target any) bool {
 
 func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:          kind,
-		Code:          code,
-		Message:       message,
-		Stacktrace:    buildStack(),
-		LogAttributes: attrs,
-		Previous:      err,
+		Kind:       kind,
+		Code:       code,
+		Message:    message,
+		Stacktrace: buildStack(),
+		Meta:       attrs,
+		Previous:   err,
 	}
 
 	return res
@@ -39,11 +38,30 @@ func WrapWithStack(err error, kind, code int, message string, attrs ...slog.Attr
 
 func Wrap(err error, kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:          kind,
-		Code:          code,
-		Message:       message,
-		LogAttributes: attrs,
-		Previous:      err,
+		Kind:     kind,
+		Code:     code,
+		Message:  message,
+		Meta:     attrs,
+		Previous: err,
+	}
+
+	return res
+}
+
+func WrapMeta(err error, attrs ...slog.Attr) *Error {
+	res := &Error{
+		Meta:     attrs,
+		Previous: err,
+	}
+
+	return res
+}
+
+func WrapMetaWithStack(err error, attrs ...slog.Attr) *Error {
+	res := &Error{
+		Stacktrace: buildStack(),
+		Meta:       attrs,
+		Previous:   err,
 	}
 
 	return res
@@ -51,11 +69,11 @@ func Wrap(err error, kind, code int, message string, attrs ...slog.Attr) *Error 
 
 func New(kind, code int, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:          kind,
-		Code:          code,
-		Message:       message,
-		Stacktrace:    buildStack(),
-		LogAttributes: attrs,
+		Kind:       kind,
+		Code:       code,
+		Message:    message,
+		Stacktrace: buildStack(),
+		Meta:       attrs,
 	}
 
 	return res
@@ -68,7 +86,7 @@ func buildStack() []uintptr {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("%s [%d:%d]", e.Message, e.Kind, e.Code)
+	return e.Message
 }
 
 func (e *Error) Unwrap() error {
@@ -76,7 +94,7 @@ func (e *Error) Unwrap() error {
 }
 
 func (e *Error) LogAttrs() []slog.Attr {
-	return e.LogAttributes
+	return e.Meta
 }
 
 func (e *Error) Stack() []uintptr {
