@@ -79,20 +79,20 @@ func (t *testHandler) WithGroup(name string) slog.Handler {
 func TestAll(t *testing.T) {
 	testData := []struct {
 		Name          string
-		Err           error
+		LogParams     []any
 		ExpectedError *expectedErrorData
 	}{
 		{
-			Name: "Standard error",
-			Err:  errors.New("standard error"),
+			Name:      "Standard error",
+			LogParams: []any{"err", errors.New("standard error")},
 			ExpectedError: &expectedErrorData{
 				Message:    "standard error",
 				TotalAttrs: 2,
 			},
 		},
 		{
-			Name: "Only custom error no attributes",
-			Err:  errors2.New(kind1, code1, "hello"),
+			Name:      "Only custom error no attributes",
+			LogParams: []any{"err", errors2.New(kind1, code1, "hello")},
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "hello",
@@ -101,8 +101,8 @@ func TestAll(t *testing.T) {
 			},
 		},
 		{
-			Name: "Wrapped custom error by one layer",
-			Err:  fmt.Errorf("got error: %w", errors2.New(kind1, code1, "hello")),
+			Name:      "Wrapped custom error by one layer",
+			LogParams: []any{"err", fmt.Errorf("got error: %w", errors2.New(kind1, code1, "hello"))},
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "got error: hello",
@@ -112,7 +112,7 @@ func TestAll(t *testing.T) {
 		},
 		{
 			Name: "Multiple wrapped custom error with metadata",
-			Err: fmt.Errorf("full error: %w",
+			LogParams: []any{"err", fmt.Errorf("full error: %w",
 				errors2.Wrap(
 					fmt.Errorf(
 						"got error: %w",
@@ -120,18 +120,36 @@ func TestAll(t *testing.T) {
 					),
 					kind2,
 					code2,
-					"aaa",
-					slog.Int("request_id", 2),
+					"aaa", slog.Int("request_id", 2),
 				),
-			),
+			)},
 			ExpectedError: &expectedErrorData{
 				Type:     "kind1:code1",
 				Message:  "full error: aaa",
 				StackPCs: make([]uintptr, 3),
 				Meta: []slog.Attr{
 					slog.Int("request_id", 2),
-					slog.Int("code", 1),
-					slog.Int("code2", 2),
+					slog.Int(code1.String(), 1),
+					slog.Int(code2.String(), 2),
+				},
+				TotalAttrs: 7,
+			},
+		},
+		{
+			Name: "Additional logging parameters",
+			LogParams: []any{
+				"request_id", 1,
+				"err", errors2.New(kind1, code1, "hello", slog.Int("errAttr", 13)),
+				"span_id", 2,
+			},
+			ExpectedError: &expectedErrorData{
+				Type:     "kind1:code1",
+				Message:  "hello",
+				StackPCs: make([]uintptr, 3),
+				Meta: []slog.Attr{
+					slog.Int("request_id", 1),
+					slog.Int("span_id", 2),
+					slog.Int("errAttr", 13),
 				},
 				TotalAttrs: 7,
 			},
@@ -143,7 +161,7 @@ func TestAll(t *testing.T) {
 			stub := &testHandler{}
 			h := NewEnrich(stub)
 			logger := slog.New(h)
-			logger.Info("test", "error", d.Err)
+			logger.Info("test", d.LogParams...)
 
 			hasId := false
 			stub.Rec.Attrs(func(a slog.Attr) bool {

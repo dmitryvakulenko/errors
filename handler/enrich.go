@@ -61,9 +61,11 @@ func (h *Enrich) Handle(ctx context.Context, r slog.Record) error {
 			r2.AddAttrs(a)
 		}
 
-		firstErr = err
+		if firstErr == nil {
+			firstErr = err
+		}
 
-		return false
+		return true
 	})
 
 	if firstErr == nil {
