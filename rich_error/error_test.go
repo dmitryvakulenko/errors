@@ -1,4 +1,4 @@
-package errors
+package rich_error
 
 import (
 	"errors"
@@ -57,8 +57,9 @@ func TestNewError(t *testing.T) {
 	frames := runtime.CallersFrames(e.Stacktrace)
 	frame, _ := frames.Next()
 
-	if frame.Function != "github.com/dmitryvakulenko/errors.TestNewError" {
-		t.Errorf("Wrong stack - unknown function '%s'", frame.Function)
+	expectdFn := "github.com/dmitryvakulenko/errors/rich_error.TestNewError"
+	if frame.Function != expectdFn {
+		t.Errorf("Wrong stack - unknown function '%s', expected - '%s'", frame.Function, expectdFn)
 	}
 }
 

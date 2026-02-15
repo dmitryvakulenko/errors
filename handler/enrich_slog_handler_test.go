@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	errors2 "github.com/dmitryvakulenko/errors"
+	"github.com/dmitryvakulenko/errors/rich_error"
 )
 
 type (
@@ -92,7 +92,7 @@ func TestAll(t *testing.T) {
 		},
 		{
 			Name:      "Only custom error no attributes",
-			LogParams: []any{"err", errors2.New(kind1, code1, "hello")},
+			LogParams: []any{"err", rich_error.New(kind1, code1, "hello")},
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "hello",
@@ -102,7 +102,7 @@ func TestAll(t *testing.T) {
 		},
 		{
 			Name:      "Wrapped custom error by one layer",
-			LogParams: []any{"err", fmt.Errorf("got error: %w", errors2.New(kind1, code1, "hello"))},
+			LogParams: []any{"err", fmt.Errorf("got error: %w", rich_error.New(kind1, code1, "hello"))},
 			ExpectedError: &expectedErrorData{
 				Type:       "kind1:code1",
 				Message:    "got error: hello",
@@ -113,14 +113,15 @@ func TestAll(t *testing.T) {
 		{
 			Name: "Multiple wrapped custom error with metadata",
 			LogParams: []any{"err", fmt.Errorf("full error: %w",
-				errors2.Wrap(
+				rich_error.Wrap(
 					fmt.Errorf(
 						"got error: %w",
-						errors2.New(kind1, code1, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
+						rich_error.New(kind1, code1, "hello", slog.Int("code", 1), slog.Int("code2", 2)),
 					),
 					kind2,
 					code2,
-					"aaa", slog.Int("request_id", 2),
+					"aaa",
+					slog.Int("request_id", 2),
 				),
 			)},
 			ExpectedError: &expectedErrorData{
@@ -139,7 +140,7 @@ func TestAll(t *testing.T) {
 			Name: "Additional logging parameters",
 			LogParams: []any{
 				"request_id", 1,
-				"err", errors2.New(kind1, code1, "hello", slog.Int("errAttr", 13)),
+				"err", rich_error.New(kind1, code1, "hello", slog.Int("errAttr", 13)),
 				"span_id", 2,
 			},
 			ExpectedError: &expectedErrorData{
@@ -159,7 +160,7 @@ func TestAll(t *testing.T) {
 	for _, d := range testData {
 		t.Run(d.Name, func(t *testing.T) {
 			stub := &testHandler{}
-			h := NewEnrich(stub)
+			h := NewEnrichSlogHandler(stub)
 			logger := slog.New(h)
 			logger.Info("test", d.LogParams...)
 

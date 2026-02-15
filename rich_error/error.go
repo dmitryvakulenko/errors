@@ -1,4 +1,4 @@
-package errors
+package rich_error
 
 import (
 	stdErr "errors"
