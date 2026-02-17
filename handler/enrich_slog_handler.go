@@ -57,12 +57,10 @@ func (h *EnrichSlogHandler) Handle(ctx context.Context, r slog.Record) error {
 	r.Attrs(func(a slog.Attr) bool {
 		v := a.Value.Any()
 		err, ok := v.(error)
-		if !ok || err == nil {
-			r2.AddAttrs(a)
-		}
-
-		if firstErr == nil {
+		if ok && err != nil && firstErr == nil {
 			firstErr = err
+		} else {
+			r2.AddAttrs(a)
 		}
 
 		return true
@@ -96,8 +94,16 @@ func (h *EnrichSlogHandler) Handle(ctx context.Context, r slog.Record) error {
 	r2.AddAttrs(slog.String(errorMessageKey, resultMsg))
 
 	if curRichErr != nil {
+		kind := "<nil>"
+		if curRichErr.Kind != nil {
+			kind = curRichErr.Kind.String()
+		}
+		code := "<nil>"
+		if curRichErr.Code != nil {
+			code = curRichErr.Code.String()
+		}
 		r2.AddAttrs(
-			slog.String(errorTypeKey, fmt.Sprintf("%s:%s", curRichErr.Kind.String(), curRichErr.Code.String())),
+			slog.String(errorTypeKey, fmt.Sprintf("%s:%s", kind, code)),
 			slog.Any(errorStackTraceKey, stackTrace(curRichErr.Stacktrace)),
 		)
 	}

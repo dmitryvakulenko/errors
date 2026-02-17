@@ -32,7 +32,9 @@ func SentryConverter(
 		case errorTypeKey:
 			exception.Type = a.Value.String()
 		case errorStackTraceKey:
-			exception.Stacktrace = formatStack([]uintptr(a.Value.Any().(stackTrace)))
+			if stacktrace, ok := a.Value.Any().(stackTrace); ok {
+				exception.Stacktrace = formatStack(stacktrace)
+			}
 		default:
 			evt.Extra[a.Key] = a.Value.Any()
 		}
