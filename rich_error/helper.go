@@ -2,8 +2,8 @@ package rich_error
 
 import "strconv"
 
-type IntStringer int
+type ByteStringer byte
 
-func (i IntStringer) String() string {
-	return strconv.Itoa(int(i))
+func (i ByteStringer) String() string {
+	return strconv.FormatUint(uint64(i), 16)
 }
