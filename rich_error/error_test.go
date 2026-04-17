@@ -81,3 +81,16 @@ func TestAs(t *testing.T) {
 		t.Errorf("Error should has same type")
 	}
 }
+
+func TestKindOf(t *testing.T) {
+	err := New(StrStringer("kind"), StrStringer("code"), "message")
+	err2 := fmt.Errorf("error: %w", err)
+
+	if !KindOf(err2, StrStringer("kind")) {
+		t.Errorf("Error should be kind of")
+	}
+
+	if KindOf(err2, ByteStringer(1)) {
+		t.Errorf("Error should not be kind of")
+	}
+}

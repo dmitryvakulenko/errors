@@ -24,6 +24,15 @@ func As(err error, target any) bool {
 	return stdErr.As(err, target)
 }
 
+func KindOf(err error, kind any) bool {
+	var richErr *Error
+	if As(err, &richErr) {
+		return richErr.Kind == kind
+	} else {
+		return false
+	}
+}
+
 func WrapWithStack(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Kind:       kind,
