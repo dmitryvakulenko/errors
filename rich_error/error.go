@@ -33,6 +33,10 @@ func KindOf(err error, kind any) bool {
 	}
 }
 
+func AsType[E error](err error) (E, bool) {
+	return stdErr.AsType[E](err)
+}
+
 func WrapWithStack(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Kind:       kind,
