@@ -25,9 +25,8 @@ func As(err error, target any) bool {
 }
 
 func KindOf(err error, kind any) bool {
-	var richErr *Error
-	if As(err, &richErr) {
-		return richErr.Kind == kind
+	if e, ok := AsType[*Error](err); ok {
+		return e.Kind == kind
 	} else {
 		return false
 	}
