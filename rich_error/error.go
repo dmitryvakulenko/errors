@@ -99,7 +99,15 @@ func buildStack() []uintptr {
 }
 
 func (e *Error) Error() string {
-	return e.Message
+	msg := e.Message
+	if e.Previous != nil {
+		if msg != "" {
+			msg += ": "
+		}
+		msg += e.Previous.Error()
+	}
+
+	return msg
 }
 
 func (e *Error) Unwrap() error {
