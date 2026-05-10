@@ -100,7 +100,7 @@ func TestSquash(t *testing.T) {
 	code := StrStringer("code")
 	err := New(kind, code, "message", slog.String("key", "value"))
 	err2 := fmt.Errorf("error: %w", err)
-	err3 := WrapMeta(err2, slog.Int("user_id", 123))
+	err3 := WrapAttr(err2, slog.Int("user_id", 123))
 
 	resErr := Squash(err3)
 

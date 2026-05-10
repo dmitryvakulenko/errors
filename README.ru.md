@@ -50,9 +50,9 @@ func validate(email string) error {
 }
 ```
 ### Оборачивание ошибки
-- Wrap — оборачивает ошибку и добавляет meta (без stacktrace).
+- Wrap — оборачивает ошибку и добавляет аттрибуты (без stacktrace).
 - WrapWithStack — оборачивает + снимает stacktrace на месте обёртки. Нужна для оборачивания стандартных ошибок.
-- WrapMeta / WrapMetaWithStack — добавляет meta (+/- stack) без kind/code/message. Эти функции нужны только для добавления метаданных к ошибке. Т.е. предполагается, что на нижних уровнях уже была создана `rich_error.Error` с kind/code и здесь они могут быть пустыми.
+- WrapAttr / WrapAttrWithStack — добавляет атрибуты (+/- stack) без kind/code/message. Эти функции нужны только для добавления аттрибутов к ошибке. Т.е. предполагается, что на нижних уровнях уже была создана `rich_error.Error` с kind/code и здесь они могут быть пустыми.
 ```go
 err := doSomething()
 if err != nil {
@@ -73,7 +73,7 @@ if rich_error.Is(err, context.DeadlineExceeded) { ... }
 
 var re *rich_error.Error
 if rich_error.As(err, &re) {
-  // re.Kind, re.Code, re.Meta, re.Stacktrace ...
+  // re.Kind, re.Code, re.Attributes, re.Stacktrace ...
 }
 ```
 ## Интеграция с slog
@@ -109,6 +109,7 @@ func main() {
 }
 ```
 ## Интеграция с Sentry
+### На уровне slog
 Реализация пока простейшая. handler.SentryConverter предназначен для интеграции с `github.com/getsentry/sentry-go/slog` и создаёт **sentry.Event** на основе slog.Record:
 - уровень → evt.Level
 - сообщение → evt.Message
@@ -117,7 +118,7 @@ func main() {
 - errorType → Exception.Type
 - errorStackTrace → Exception.Stacktrace
 - остальные атрибуты → evt.Extra
-### Пример использования
+#### Пример использования
 ```go
 package main
 
@@ -151,5 +152,39 @@ func main() {
     slog.SetDefault(logger)
 
 		slog.Error("request failed", slog.Any("err", err))
+}
+```
+### Отдельно от slog
+Предполагается раздельное отдельное использование slog для логирования и sentry только для ошибок.
+Для логирование факта ошибки и её id в sentry можно использовать sentry_notifier. Атрибуты ошибки при этом
+не логируются, они будут храниться в sentry.
+#### Пример использования
+```go
+func main() {
+	client, err := sentry.NewClient(sentry.ClientOptions{
+        Dsn: "https://your-dsn@sentry.io/...",
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		client.Flush(time.Second * 10)
+		client.Close()
+	}()
+
+	hub := sentry.NewHub(client, sentry.NewScope())
+
+	notifier := sentry_notifier.NewNotifier(hub, slog.Default())
+
+	err = rich_error.New(
+		rich_error.StrStringer("kind"),
+		rich_error.StrStringer("code"),
+		"test error",
+		slog.String("key", "value"),
+	)
+
+	err2 := fmt.Errorf("wrapped: %w", err)
+
+	notifier.CaptureError(err2)
 }
 ```

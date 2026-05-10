@@ -71,7 +71,7 @@ func Wrap(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr
 	return res
 }
 
-func WrapMeta(err error, attrs ...slog.Attr) *Error {
+func WrapAttr(err error, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Attributes: attrs,
 		Previous:   err,
@@ -80,7 +80,7 @@ func WrapMeta(err error, attrs ...slog.Attr) *Error {
 	return res
 }
 
-func WrapMetaWithStack(err error, attrs ...slog.Attr) *Error {
+func WrapAttrWithStack(err error, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Stacktrace: buildStack(),
 		Attributes: attrs,
