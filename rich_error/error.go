@@ -5,16 +5,26 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strings"
 )
 
-type Error struct {
-	Kind       fmt.Stringer
-	Code       fmt.Stringer
-	Message    string
-	Meta       []slog.Attr
-	Stacktrace []uintptr
-	Previous   error
-}
+type (
+	Error struct {
+		Kind       fmt.Stringer
+		Code       fmt.Stringer
+		Message    string
+		Attributes []slog.Attr
+		Stacktrace []uintptr
+		Previous   error
+	}
+
+	ChainData struct {
+		Kind       fmt.Stringer
+		Code       fmt.Stringer
+		Attributes []slog.Attr
+		Stacktrace []uintptr
+	}
+)
 
 func Is(err, target error) bool {
 	return stdErr.Is(err, target)
@@ -42,7 +52,7 @@ func WrapWithStack(err error, kind, code fmt.Stringer, message string, attrs ...
 		Code:       code,
 		Message:    message,
 		Stacktrace: buildStack(),
-		Meta:       attrs,
+		Attributes: attrs,
 		Previous:   err,
 	}
 
@@ -51,11 +61,11 @@ func WrapWithStack(err error, kind, code fmt.Stringer, message string, attrs ...
 
 func Wrap(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Kind:     kind,
-		Code:     code,
-		Message:  message,
-		Meta:     attrs,
-		Previous: err,
+		Kind:       kind,
+		Code:       code,
+		Message:    message,
+		Attributes: attrs,
+		Previous:   err,
 	}
 
 	return res
@@ -63,8 +73,8 @@ func Wrap(err error, kind, code fmt.Stringer, message string, attrs ...slog.Attr
 
 func WrapMeta(err error, attrs ...slog.Attr) *Error {
 	res := &Error{
-		Meta:     attrs,
-		Previous: err,
+		Attributes: attrs,
+		Previous:   err,
 	}
 
 	return res
@@ -73,7 +83,7 @@ func WrapMeta(err error, attrs ...slog.Attr) *Error {
 func WrapMetaWithStack(err error, attrs ...slog.Attr) *Error {
 	res := &Error{
 		Stacktrace: buildStack(),
-		Meta:       attrs,
+		Attributes: attrs,
 		Previous:   err,
 	}
 
@@ -86,7 +96,7 @@ func New(kind, code fmt.Stringer, message string, attrs ...slog.Attr) *Error {
 		Code:       code,
 		Message:    message,
 		Stacktrace: buildStack(),
-		Meta:       attrs,
+		Attributes: attrs,
 	}
 
 	return res
@@ -99,15 +109,55 @@ func buildStack() []uintptr {
 }
 
 func (e *Error) Error() string {
-	if e.Message != "" && e.Previous != nil {
-		return e.Message + ": " + e.Previous.Error()
-	} else if e.Message != "" {
-		return e.Message
-	} else {
-		return e.Previous.Error()
+	msg := strings.Builder{}
+
+	if e.Kind != nil || e.Code != nil {
+		msg.WriteString(fmt.Sprintf("[%s:%s] ", e.Kind, e.Code))
 	}
+
+	if e.Message != "" {
+		msg.WriteString(e.Message)
+	}
+
+	if e.Previous != nil {
+		if msg.Len() > 0 {
+			msg.WriteString(": ")
+		}
+
+		msg.WriteString(e.Previous.Error())
+	}
+
+	return msg.String()
 }
 
 func (e *Error) Unwrap() error {
 	return e.Previous
+}
+
+// Squash collects all error attributes from the chain into ChainData.
+// It uses Kind, Code, and Stacktrace from the last Error in the chain.
+// If no rich_errors in the chain all fields will be empty.
+func Squash(err error) ChainData {
+	curErr, ok := AsType[*Error](err)
+	if !ok {
+		return ChainData{}
+	}
+
+	prevErr := curErr
+	resAttrs := curErr.Attributes
+	for curErr.Previous != nil {
+		curErr, ok = AsType[*Error](curErr.Previous)
+		if !ok {
+			break
+		}
+		resAttrs = append(resAttrs, curErr.Attributes...)
+		prevErr = curErr
+	}
+
+	return ChainData{
+		Kind:       prevErr.Kind,
+		Code:       prevErr.Code,
+		Attributes: resAttrs,
+		Stacktrace: prevErr.Stacktrace,
+	}
 }
