@@ -99,17 +99,15 @@ func buildStack() []uintptr {
 }
 
 func (e *Error) Error() string {
-	return e.Message
+	if e.Message != "" && e.Previous != nil {
+		return e.Message + ": " + e.Previous.Error()
+	} else if e.Message != "" {
+		return e.Message
+	} else {
+		return e.Previous.Error()
+	}
 }
 
 func (e *Error) Unwrap() error {
 	return e.Previous
-}
-
-func (e *Error) LogAttrs() []slog.Attr {
-	return e.Meta
-}
-
-func (e *Error) Stack() []uintptr {
-	return e.Stacktrace
 }
