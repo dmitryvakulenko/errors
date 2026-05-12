@@ -38,16 +38,16 @@ func TestNewError(t *testing.T) {
 		t.Errorf("Expected Message to be 'test error', got '%s'", e.Message)
 	}
 
-	if e.Error() != "test error" {
-		t.Errorf("Expected full error message to be 'test error [1:2]', got '%s'", e.Error())
+	if e.Error() != "[1:2] test error" {
+		t.Errorf("Expected full error message to be '[1:2] test error', got '%s'", e.Error())
 	}
 
-	if len(e.Meta) != 1 {
-		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Meta))
+	if len(e.Attributes) != 1 {
+		t.Errorf("Expected Metadata to have 1 entry, got %d", len(e.Attributes))
 	}
 
-	if e.Meta[0].String() != "key=value" {
-		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.Meta[0].String())
+	if e.Attributes[0].String() != "key=value" {
+		t.Errorf("Expected logging attribuge 'key' to be 'value', got '%v'", e.Attributes[0].String())
 	}
 
 	if len(e.Stacktrace) != 3 {
@@ -92,5 +92,36 @@ func TestKindOf(t *testing.T) {
 
 	if KindOf(err2, ByteStringer(1)) {
 		t.Errorf("Error should not be kind of")
+	}
+}
+
+func TestSquash(t *testing.T) {
+	kind := StrStringer("kind")
+	code := StrStringer("code")
+	err := New(kind, code, "message", slog.String("key", "value"))
+	err2 := fmt.Errorf("error: %w", err)
+	err3 := WrapAttr(err2, slog.Int("user_id", 123))
+
+	resErr := Squash(err3)
+
+	if resErr.Kind != kind {
+		t.Errorf("Wrong kind: %s. Expected %s.", resErr.Kind, kind)
+	}
+
+	if resErr.Code != code {
+		t.Errorf("Wrong code: %s. Expected %s.", resErr.Code, code)
+	}
+
+	if len(resErr.Attributes) != 2 {
+		t.Errorf("Wrong number of attributes: %d. Expected 2.", len(resErr.Attributes))
+	}
+
+	if len(resErr.Stacktrace) != 3 {
+		t.Errorf("Expected Stack should have exactly 3 entries (including testing runtime), got %d", len(resErr.Stacktrace))
+	}
+
+	expMsg := "error: [kind:code] message"
+	if err3.Error() != expMsg {
+		t.Errorf("Wrong error message: '%s'. Expected '%s'.", err3.Error(), expMsg)
 	}
 }

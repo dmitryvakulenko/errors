@@ -83,7 +83,7 @@ func (h *EnrichSlogHandler) Handle(ctx context.Context, r slog.Record) error {
 		if resultMsg == "" {
 			resultMsg = tmp.Error()
 		}
-		r2.AddAttrs(curRichErr.LogAttrs()...)
+		r2.AddAttrs(curRichErr.Attrs()...)
 
 		tmp = curRichErr.Unwrap()
 		if tmp == nil {
